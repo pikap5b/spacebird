@@ -57,31 +57,6 @@ export function MyBookings() {
     },
   })
 
-  const checkInMutation = useMutation({
-    mutationFn: async (bookingId: string) => {
-      // Update reservation status
-      const { error: updateError } = await supabase
-        .from('reservations')
-        .update({ status: 'checked_in' })
-        .eq('id', bookingId)
-
-      if (updateError) throw updateError
-
-      // Create check-in record
-      const { error: checkInError } = await supabase
-        .from('check_ins')
-        .insert({
-          reservation_id: bookingId,
-          checked_in_at: new Date().toISOString(),
-        })
-
-      if (checkInError) throw checkInError
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['upcoming-bookings'] })
-    },
-  })
 
   const getStatusBadge = (status: string, bookingDate: string) => {
     const isPastDate = isPast(parseISO(bookingDate))
@@ -95,15 +70,7 @@ export function MyBookings() {
         </span>
       )
     }
-    if (status === 'checked_in') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
-          <CheckCircle2 className="h-3 w-3" />
-          Checked In
-        </span>
-      )
-    }
-    if (isPastDate && status === 'confirmed') {
+    if (isPastDate && (status === 'checked_in' || status === 'confirmed')) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
           <Clock className="h-3 w-3" />
@@ -111,17 +78,13 @@ export function MyBookings() {
         </span>
       )
     }
+    // Default status for active bookings (checked_in is now default)
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
         <CheckCircle2 className="h-3 w-3" />
-        Confirmed
+        Active
       </span>
     )
-  }
-
-  const canCheckIn = (booking: any) => {
-    const isToday = format(parseISO(booking.booking_date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-    return isToday && booking.status === 'confirmed'
   }
 
   const canCancel = (booking: any) => {
@@ -181,15 +144,6 @@ export function MyBookings() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {canCheckIn(booking) && (
-                      <Button
-                        size="sm"
-                        onClick={() => checkInMutation.mutate(booking.id)}
-                        disabled={checkInMutation.isPending}
-                      >
-                        Check In
-                      </Button>
-                    )}
                     {canCancel(booking) && (
                       <Button
                         size="sm"

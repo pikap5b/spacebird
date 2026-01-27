@@ -223,7 +223,7 @@ export function BookDesk() {
         )
       }
 
-      // Insert the reservation
+      // Insert the reservation with checked_in status by default
       const { data, error } = await supabase
         .from('reservations')
         .insert({
@@ -232,7 +232,7 @@ export function BookDesk() {
           booking_date: selectedDate,
           start_time: finalStartTime,
           end_time: finalEndTime,
-          status: 'confirmed',
+          status: 'checked_in', // Auto check-in on booking
         })
         .select()
         .single()
@@ -246,6 +246,17 @@ export function BookDesk() {
         }
         throw error
       }
+
+      // Create check-in record automatically
+      if (data) {
+        await supabase
+          .from('check_ins')
+          .insert({
+            reservation_id: data.id,
+            checked_in_at: new Date().toISOString(),
+          })
+      }
+
       return data
     },
     onSuccess: () => {
