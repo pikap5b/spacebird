@@ -54,18 +54,41 @@ export function BookDesk() {
     enabled: !!selectedLocation,
   })
 
-  // Fetch desks for selected floor with bookings
+  // Fetch desks for selected floor (or all floors) with bookings
   const { data: desks, isLoading: desksLoading } = useQuery({
-    queryKey: ['desks', selectedFloor, selectedDate],
+    queryKey: ['desks', selectedFloor, selectedLocation, selectedDate],
     queryFn: async () => {
-      if (!selectedFloor) return []
+      if (!selectedFloor || !selectedLocation) return []
       
-      // Get all desks for the floor
-      const { data: desksData, error: desksError } = await supabase
+      // Get all desks for the floor(s)
+      let desksQuery = supabase
         .from('desks')
-        .select('*')
-        .eq('floor_id', selectedFloor)
-        .order('name')
+        .select(`
+          *,
+          floors (
+            id,
+            name
+          )
+        `)
+
+      if (selectedFloor !== 'all') {
+        desksQuery = desksQuery.eq('floor_id', selectedFloor)
+      } else {
+        // If "all floors", get desks from all floors in the location
+        const { data: locationFloors } = await supabase
+          .from('floors')
+          .select('id')
+          .eq('location_id', selectedLocation)
+        
+        if (locationFloors && locationFloors.length > 0) {
+          const floorIds = locationFloors.map((f: any) => f.id)
+          desksQuery = desksQuery.in('floor_id', floorIds)
+        } else {
+          return []
+        }
+      }
+
+      const { data: desksData, error: desksError } = await desksQuery.order('name')
       
       if (desksError) throw desksError
 
@@ -98,6 +121,8 @@ export function BookDesk() {
 
         return {
           ...desk,
+          floor_id: desk.floor_id,
+          floor: desk.floors,
           bookings: deskBookings.map((b: any) => ({
             id: b.id,
             start_time: b.start_time,
@@ -113,7 +138,7 @@ export function BookDesk() {
         }
       })
     },
-    enabled: !!selectedFloor && !!selectedDate,
+    enabled: !!selectedFloor && !!selectedLocation && !!selectedDate,
   })
 
   const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
@@ -266,6 +291,7 @@ export function BookDesk() {
                 disabled={!selectedLocation}
               >
                 <option value="">Select a floor</option>
+                <option value="all">All floors</option>
                 {floors?.map((floor) => (
                   <option key={floor.id} value={floor.id}>
                     {floor.name}

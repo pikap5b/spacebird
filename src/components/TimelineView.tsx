@@ -21,6 +21,11 @@ interface Desk {
   capacity?: number
   equipment?: string[] | null
   bookings?: Booking[]
+  floor_id?: string
+  floor?: {
+    id: string
+    name: string
+  }
 }
 
 interface TimelineViewProps {
@@ -108,8 +113,27 @@ export function TimelineView({
 
   const formattedDate = format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEE, d MMM yyyy')
 
+  // Group desks by floor
+  const desksByFloor = desks.reduce((acc, desk) => {
+    const floorId = desk.floor_id || 'unknown'
+    // Handle both object and array formats from Supabase
+    const floor = Array.isArray(desk.floor) ? desk.floor[0] : desk.floor
+    const floorName = floor?.name || 'Unknown Floor'
+    if (!acc[floorId]) {
+      acc[floorId] = { floorId, floorName, desks: [] }
+    }
+    acc[floorId].desks.push(desk)
+    return acc
+  }, {} as Record<string, { floorId: string; floorName: string; desks: Desk[] }>)
+  
+  // Sort floors by name
+  const sortedFloorGroups = Object.values(desksByFloor).sort((a, b) => 
+    a.floorName.localeCompare(b.floorName)
+  )
+
+
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto bg-slate-50/50">
       <div className="min-w-[1200px]">
         {/* Date header */}
         <div className="sticky top-0 z-20 bg-background border-b p-4">
@@ -122,8 +146,8 @@ export function TimelineView({
         {/* Header with time slots */}
         <div className="sticky top-[73px] z-10 bg-background border-b">
           <div className="flex">
-            <div className="w-48 p-4 font-semibold border-r">Desk / Space</div>
-            <div className="flex-1 flex">
+            <div className="w-64 p-4 font-semibold border-r bg-background">Desk / Space</div>
+            <div className="flex-1 flex bg-white">
               {HOURS.map((hour) => (
                 <div
                   key={hour}
@@ -139,61 +163,74 @@ export function TimelineView({
           </div>
         </div>
 
-        {/* Desk rows */}
-        <div className="divide-y">
-          {desks.map((desk) => (
-            <div key={desk.id} className="flex min-h-[100px] hover:bg-accent/50">
-              {/* Desk info column */}
-              <div className="w-48 p-4 border-r flex flex-col justify-center">
-                <div className="font-medium">{desk.name}</div>
-                {desk.capacity && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <Users className="h-3 w-3" />
-                    {desk.capacity} {desk.capacity === 1 ? 'person' : 'people'}
+        {/* Floor groups */}
+        <div>
+          {sortedFloorGroups.map((floorGroup) => (
+            <div key={floorGroup.floorId} className="border-b border-gray-200">
+              {/* Floor header */}
+              <div className="flex bg-slate-100/50 border-b border-gray-200">
+                <div className="w-64 p-3 border-r bg-slate-100/50">
+                  <div className="font-bold text-base text-gray-800">
+                    {floorGroup.floorName}
                   </div>
-                )}
-                {desk.equipment && desk.equipment.length > 0 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {desk.equipment.slice(0, 2).join(', ')}
-                    {desk.equipment.length > 2 && ` +${desk.equipment.length - 2}`}
-                  </div>
-                )}
+                </div>
+                <div className="flex-1 bg-white" />
               </div>
 
-              {/* Timeline column */}
-              <div className="flex-1 relative">
-                <div className="absolute inset-0 flex">
-                  {HOURS.map((hour, index) => {
-                    const hourNum = index
-                    const available = isSlotAvailable(desk, hourNum)
-                    const isSelected =
-                      selectedSlot?.deskId === desk.id &&
-                      selectedSlot?.startTime === hour
+              {/* Desks in this floor */}
+              {floorGroup.desks.map((desk) => (
+                <div key={desk.id} className="flex min-h-[100px] bg-white hover:bg-slate-50/50 border-b border-gray-100">
+                  {/* Desk info column */}
+                  <div className="w-64 p-4 border-r bg-white flex flex-col justify-center">
+                    <div className="font-medium text-gray-900">{desk.name}</div>
+                    {desk.capacity && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{desk.capacity}</span>
+                      </div>
+                    )}
+                    {desk.equipment && desk.equipment.length > 0 && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {desk.equipment.slice(0, 2).join(', ')}
+                        {desk.equipment.length > 2 && ` +${desk.equipment.length - 2}`}
+                      </div>
+                    )}
+                  </div>
 
-                    return (
-                      <div
-                        key={hour}
-                        className={cn(
-                          'flex-1 border-r border-solid cursor-pointer transition-colors relative',
-                          'min-w-[60px]',
-                          available
-                            ? 'bg-green-50 hover:bg-green-100'
-                            : 'bg-red-50',
-                          isSelected && 'bg-blue-200'
-                        )}
-                        style={{
-                          borderColor: '#e5e7eb',
-                        }}
-                        onClick={() => available && handleSlotClick(desk, hourNum)}
-                        title={
-                          available
-                            ? `Available: ${hour} - ${HOURS[index + 1] || '24:00'}`
-                            : 'Not available'
-                        }
-                      />
-                    )
-                  })}
-                </div>
+                  {/* Timeline column */}
+                  <div className="flex-1 relative bg-white">
+                    <div className="absolute inset-0 flex">
+                      {HOURS.map((hour, index) => {
+                        const hourNum = index
+                        const available = isSlotAvailable(desk, hourNum)
+                        const isSelected =
+                          selectedSlot?.deskId === desk.id &&
+                          selectedSlot?.startTime === hour
+
+                        return (
+                          <div
+                            key={hour}
+                            className={cn(
+                              'flex-1 border-r border-solid cursor-pointer transition-colors relative',
+                              'min-w-[60px]',
+                              available
+                                ? 'bg-white hover:bg-green-50'
+                                : 'bg-red-50/30',
+                              isSelected && 'bg-blue-100'
+                            )}
+                            style={{
+                              borderColor: '#e5e7eb',
+                            }}
+                            onClick={() => available && handleSlotClick(desk, hourNum)}
+                            title={
+                              available
+                                ? `Available: ${hour} - ${HOURS[index + 1] || '24:00'}`
+                                : 'Not available'
+                            }
+                          />
+                        )
+                      })}
+                    </div>
 
                 {/* Booking cards */}
                 {desk.bookings?.map((booking) => {
@@ -230,8 +267,10 @@ export function TimelineView({
                       )}
                     </div>
                   )
-                })}
-              </div>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
