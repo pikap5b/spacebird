@@ -53,11 +53,13 @@ git push
 
 ### 2.2 Configure Build Settings
 
-Netlify should auto-detect Vite settings, but verify these:
+The `netlify.toml` file should auto-configure these, but verify:
 
 - **Build command:** `npm run build`
 - **Publish directory:** `dist`
 - **Base directory:** (leave empty unless your project is in a subdirectory)
+
+**Important:** If you see the old build command `tsc && vite build` in Netlify, change it to just `npm run build` (which runs `vite build`).
 
 ### 2.3 Set Environment Variables
 
@@ -71,7 +73,12 @@ Netlify should auto-detect Vite settings, but verify these:
    - **Key:** `VITE_SUPABASE_ANON_KEY`
    - **Value:** Your Supabase anon key (from your `.env` file)
 
-### 2.4 Deploy
+### 2.4 Set Node Version (Optional but Recommended)
+
+1. In build settings, scroll to **"Environment"**
+2. Set **Node version** to `18` or `20` (Netlify defaults to 18)
+
+### 2.5 Deploy
 
 1. Click **"Deploy site"**
 2. Netlify will start building your site
@@ -128,16 +135,41 @@ Netlify automatically deploys when you push to your main branch. To configure:
 
 ## Troubleshooting
 
-### Build Fails
+### Build Fails with Exit Code 2
+
+**Error: "Command failed with exit code 2"**
+
+This usually means:
+1. **Wrong build command**: Make sure Netlify is using `npm run build` (not `tsc && vite build`)
+   - Go to **Site settings** → **Build & deploy** → **Build settings**
+   - Verify the build command is `npm run build`
+   - The `netlify.toml` file should handle this automatically
+
+2. **TypeScript errors**: If you see TypeScript errors in the build logs:
+   - Check the build logs for specific error messages
+   - Run `npm run build` locally to reproduce
+   - Fix any TypeScript errors in your code
+
+3. **Missing dependencies**: 
+   - Ensure `package.json` has all required dependencies
+   - Check that `node_modules` is in `.gitignore` (it should be)
+
+4. **Clear Netlify cache**:
+   - Go to **Site settings** → **Build & deploy** → **Build settings**
+   - Click **"Clear cache and deploy site"**
+
+### Build Fails: "Command failed"
 
 **Error: "Command failed"**
 - Check build logs for specific errors
 - Ensure all dependencies are in `package.json`
 - Verify Node.js version (Netlify uses Node 18 by default)
+- Try clearing the build cache
 
 **Error: "Environment variable not found"**
 - Make sure you added `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Netlify's environment variables
 - Note: Variables must start with `VITE_` to be accessible in Vite builds
+- Redeploy after adding environment variables
 
 ### Site Works But Can't Connect to Supabase
 
@@ -223,8 +255,8 @@ After successful deployment:
 ## Support
 
 If you encounter issues:
-- Check Netlify build logs
+- Check Netlify build logs (click on the failed deploy to see detailed logs)
 - Review Supabase logs
 - Check browser console for client-side errors
 - Verify all environment variables are set correctly
-
+- Try clearing Netlify build cache and redeploying
