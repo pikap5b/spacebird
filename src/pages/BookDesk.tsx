@@ -143,7 +143,7 @@ export function BookDesk() {
 
   const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
 
-  // Check for time conflicts
+  // Check for time conflicts (including all-day bookings)
   const checkTimeConflict = (deskId: string, start: string, end: string): boolean => {
     const desk = desks?.find((d: any) => d.id === deskId)
     if (!desk || !desk.bookings || desk.bookings.length === 0) return false
@@ -158,9 +158,10 @@ export function BookDesk() {
 
     return desk.bookings.some((booking: any) => {
       const existingStart = parseTime(booking.start_time)
+      // Handle all-day bookings (end_time is null or 23:59)
       const existingEnd = booking.end_time
         ? parseTime(booking.end_time)
-        : existingStart + 1
+        : 24 // All day extends to end of day
 
       // Check for overlap
       return (

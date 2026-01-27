@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, parse } from 'date-fns'
-import { Clock, Users, Calendar } from 'lucide-react'
+import { Clock, Users, Calendar, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Booking {
@@ -26,6 +26,7 @@ interface Desk {
     id: string
     name: string
   }
+  isUnavailable?: boolean // For disabled/blocked desks
 }
 
 interface TimelineViewProps {
@@ -36,7 +37,16 @@ interface TimelineViewProps {
   onBookingClick?: (booking: Booking, desk: Desk) => void
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => {
+// Default working hours: 08:00 - 20:00
+const DEFAULT_START_HOUR = 8
+const DEFAULT_END_HOUR = 20
+const WORKING_HOURS = Array.from({ length: DEFAULT_END_HOUR - DEFAULT_START_HOUR + 1 }, (_, i) => {
+  const hour = (DEFAULT_START_HOUR + i).toString().padStart(2, '0')
+  return `${hour}:00`
+})
+
+// Full 24 hours for calculations
+const ALL_HOURS = Array.from({ length: 24 }, (_, i) => {
   const hour = i.toString().padStart(2, '0')
   return `${hour}:00`
 })
@@ -61,18 +71,42 @@ export function TimelineView({
 
   const getBookingPosition = (booking: Booking) => {
     const start = parseTime(booking.start_time)
-    const end = booking.end_time ? parseTime(booking.end_time) : start + 1
+    const end = booking.end_time ? parseTime(booking.end_time) : 24
     const duration = end - start
+    
+    // Calculate position within working hours (08:00-20:00)
+    const workingHoursStart = DEFAULT_START_HOUR
+    const workingHoursEnd = DEFAULT_END_HOUR
+    const workingHoursDuration = workingHoursEnd - workingHoursStart + 1
+    
+    // If booking is outside working hours, don't show or show partially
+    if (end < workingHoursStart || start > workingHoursEnd) {
+      return { start, end, duration, left: '0%', width: '0%', visible: false }
+    }
+    
+    // Clamp to working hours for display
+    const displayStart = Math.max(start, workingHoursStart)
+    const displayEnd = Math.min(end, workingHoursEnd + 1)
+    const displayDuration = displayEnd - displayStart
+    
+    const leftPercent = ((displayStart - workingHoursStart) / workingHoursDuration) * 100
+    const widthPercent = (displayDuration / workingHoursDuration) * 100
+    
     return {
       start,
       end,
       duration,
-      left: `${(start / 24) * 100}%`,
-      width: `${(duration / 24) * 100}%`,
+      left: `${leftPercent}%`,
+      width: `${widthPercent}%`,
+      visible: true,
+      isAllDay: isAllDayBooking(booking),
     }
   }
 
   const isSlotAvailable = (desk: Desk, hour: number): boolean => {
+    // If desk is unavailable, no slots are available
+    if (desk.isUnavailable) return false
+
     if (!desk.bookings || desk.bookings.length === 0) return true
 
     const slotStart = hour
@@ -80,9 +114,10 @@ export function TimelineView({
 
     return !desk.bookings.some((booking) => {
       const bookingStart = parseTime(booking.start_time)
+      // Handle all-day bookings (end_time is null or 23:59)
       const bookingEnd = booking.end_time
         ? parseTime(booking.end_time)
-        : bookingStart + 1
+        : 24 // All day extends to end of day
 
       // Check for overlap
       return (
@@ -93,7 +128,19 @@ export function TimelineView({
     })
   }
 
+  const isAllDayBooking = (booking: Booking): boolean => {
+    if (!booking.end_time) return true
+    const start = parseTime(booking.start_time)
+    const end = parseTime(booking.end_time)
+    return start === 0 && end >= 23.5
+  }
+
   const handleSlotClick = (desk: Desk, hour: number) => {
+    // Prevent clicking on unavailable desks or occupied slots
+    if (desk.isUnavailable || !isSlotAvailable(desk, hour)) {
+      return
+    }
+
     const startTime = `${hour.toString().padStart(2, '0')}:00`
     const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`
     
@@ -106,9 +153,11 @@ export function TimelineView({
 
   const getBookingColor = (booking: Booking) => {
     if (booking.user_id === currentUserId) {
-      return 'bg-blue-500 hover:bg-blue-600'
+      // Primary accent color for user's own bookings
+      return 'bg-primary hover:bg-primary/90 text-primary-foreground'
     }
-    return 'bg-red-500 hover:bg-red-600'
+    // Muted blue/grey for other users' bookings
+    return 'bg-slate-400 hover:bg-slate-500 text-white'
   }
 
   const formattedDate = format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEE, d MMM yyyy')
@@ -147,11 +196,11 @@ export function TimelineView({
         <div className="sticky top-[73px] z-10 bg-background border-b">
           <div className="flex">
             <div className="w-64 p-4 font-semibold border-r bg-background">Desk / Space</div>
-            <div className="flex-1 flex bg-white">
-              {HOURS.map((hour) => (
+            <div className="flex-1 flex bg-white overflow-x-auto">
+              {WORKING_HOURS.map((hour) => (
                 <div
                   key={hour}
-                  className="flex-1 border-r border-solid p-2 text-center text-sm font-medium min-w-[60px]"
+                  className="flex-1 border-r border-solid p-2 text-center text-sm font-medium min-w-[60px] flex-shrink-0"
                   style={{
                     borderColor: '#e5e7eb',
                   }}
@@ -181,8 +230,16 @@ export function TimelineView({
               {floorGroup.desks.map((desk) => (
                 <div key={desk.id} className="flex min-h-[100px] bg-white hover:bg-slate-50/50 border-b border-gray-100">
                   {/* Desk info column */}
-                  <div className="w-64 p-4 border-r bg-white flex flex-col justify-center">
-                    <div className="font-medium text-gray-900">{desk.name}</div>
+                  <div className={cn(
+                    "w-64 p-4 border-r flex flex-col justify-center",
+                    desk.isUnavailable ? "bg-gray-100/50" : "bg-white"
+                  )}>
+                    <div className={cn(
+                      "font-medium",
+                      desk.isUnavailable ? "text-muted-foreground" : "text-gray-900"
+                    )}>
+                      {desk.name}
+                    </div>
                     {desk.capacity && (
                       <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1.5">
                         <Users className="h-3.5 w-3.5" />
@@ -199,75 +256,102 @@ export function TimelineView({
 
                   {/* Timeline column */}
                   <div className="flex-1 relative bg-white">
-                    <div className="absolute inset-0 flex">
-                      {HOURS.map((hour, index) => {
-                        const hourNum = index
-                        const available = isSlotAvailable(desk, hourNum)
-                        const isSelected =
-                          selectedSlot?.deskId === desk.id &&
-                          selectedSlot?.startTime === hour
+                    {desk.isUnavailable ? (
+                      // Unavailable desk - greyed out with lock
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50">
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                          <Lock className="h-5 w-5" />
+                          <span className="text-xs">Unavailable</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 flex overflow-x-auto">
+                        {WORKING_HOURS.map((hour, index) => {
+                          const hourNum = DEFAULT_START_HOUR + index
+                          const available = isSlotAvailable(desk, hourNum)
+                          const isSelected =
+                            selectedSlot?.deskId === desk.id &&
+                            selectedSlot?.startTime === hour
 
-                        return (
-                          <div
-                            key={hour}
-                            className={cn(
-                              'flex-1 border-r border-solid cursor-pointer transition-colors relative',
-                              'min-w-[60px]',
-                              available
-                                ? 'bg-white hover:bg-green-50'
-                                : 'bg-red-50/30',
-                              isSelected && 'bg-blue-100'
-                            )}
-                            style={{
-                              borderColor: '#e5e7eb',
-                            }}
-                            onClick={() => available && handleSlotClick(desk, hourNum)}
-                            title={
-                              available
-                                ? `Available: ${hour} - ${HOURS[index + 1] || '24:00'}`
-                                : 'Not available'
-                            }
-                          />
-                        )
-                      })}
-                    </div>
+                          return (
+                            <div
+                              key={hour}
+                              className={cn(
+                                'flex-1 border-r border-solid transition-colors relative flex-shrink-0',
+                                'min-w-[60px]',
+                                available
+                                  ? 'bg-white hover:bg-accent/50 cursor-pointer'
+                                  : 'bg-slate-100/50 cursor-not-allowed',
+                                isSelected && 'bg-primary/20 ring-2 ring-primary'
+                              )}
+                              style={{
+                                borderColor: '#e5e7eb',
+                              }}
+                              onClick={() => available && handleSlotClick(desk, hourNum)}
+                              title={
+                                available
+                                  ? `Available: ${hour} - ${WORKING_HOURS[index + 1] || `${DEFAULT_END_HOUR + 1}:00`}`
+                                  : 'Not available - already booked'
+                              }
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
 
                 {/* Booking cards */}
                 {desk.bookings?.map((booking) => {
                   const position = getBookingPosition(booking)
                   const isMyBooking = booking.user_id === currentUserId
+                  const isAllDay = isAllDayBooking(booking)
+
+                  // Skip if booking is not visible in working hours
+                  if (!position.visible) return null
 
                   return (
                     <div
                       key={booking.id}
                       className={cn(
-                        'absolute top-2 bottom-2 rounded px-3 py-2 text-white text-xs cursor-pointer shadow-md',
+                        'absolute top-2 bottom-2 rounded px-3 py-1.5 text-xs cursor-pointer shadow-sm',
                         getBookingColor(booking),
-                        isMyBooking && 'ring-2 ring-blue-300'
+                        isMyBooking && 'ring-2 ring-primary/30',
+                        isAllDay && 'min-w-[100px]'
                       )}
                       style={{
                         left: position.left,
                         width: position.width,
-                        minWidth: '60px',
+                        minWidth: isAllDay ? '100px' : '60px',
                       }}
                       onClick={() => onBookingClick?.(booking, desk)}
-                      title={`${booking.start_time} - ${booking.end_time || 'End of day'}`}
+                      title={
+                        isAllDay
+                          ? 'All day booked'
+                          : `${booking.start_time} - ${booking.end_time || 'End of day'}`
+                      }
                     >
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="font-medium">
-                          {booking.start_time}
-                          {booking.end_time && ` - ${booking.end_time}`}
-                        </span>
-                      </div>
-                      {booking.user && (
-                        <div className="text-[10px] opacity-90 mt-1">
-                          {booking.user.full_name || booking.user.email}
+                      {isAllDay ? (
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 flex-shrink-0" />
+                          <span className="font-medium">All day booked</span>
                         </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 flex-shrink-0" />
+                            <span className="font-medium">
+                              {booking.start_time} – {booking.end_time || '24:00'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] opacity-90 mt-0.5 font-medium">
+                            {isMyBooking
+                              ? 'My booking'
+                              : booking.user?.full_name || booking.user?.email || 'Booked'}
+                          </div>
+                        </>
                       )}
                     </div>
                   )
-                    })}
+                })}
                   </div>
                 </div>
               ))}
