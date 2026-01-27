@@ -90,7 +90,8 @@ export function BookDesk() {
       
       if (desksError) throw desksError
 
-      // Get reservations for the selected date with user info
+      // Get ALL active reservations for the selected date with user info
+      // This should now work for all users after RLS policy fix
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
         .select(`
@@ -103,6 +104,8 @@ export function BookDesk() {
         `)
         .eq('booking_date', selectedDate)
         .in('status', ['confirmed', 'checked_in'])
+        // Exclude cancelled bookings
+        .neq('status', 'cancelled')
 
       if (reservationsError) throw reservationsError
 
@@ -216,10 +219,11 @@ export function BookDesk() {
 
       if (hasConflict) {
         throw new Error(
-          'This time slot is already booked by another user. Please select a different time.'
+          'Это время уже забронировано другим пользователем. Пожалуйста, выберите другое время.'
         )
       }
 
+      // Insert the reservation
       const { data, error } = await supabase
         .from('reservations')
         .insert({
@@ -233,12 +237,22 @@ export function BookDesk() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Check if error is due to conflict (unique constraint violation)
+        if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('conflict')) {
+          throw new Error(
+            'Это время уже забронировано другим пользователем. Пожалуйста, выберите другое время.'
+          )
+        }
+        throw error
+      }
       return data
     },
     onSuccess: () => {
+      // Invalidate all related queries to refresh data immediately
       queryClient.invalidateQueries({ queryKey: ['desks'] })
       queryClient.invalidateQueries({ queryKey: ['upcoming-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] })
       setBookingModalOpen(false)
       setSelectedDesk(null)
       setStartTime('09:00')

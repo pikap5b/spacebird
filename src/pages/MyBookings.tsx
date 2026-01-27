@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { format, isPast, parseISO } from 'date-fns'
 import { CheckCircle2, XCircle, Clock, MapPin } from 'lucide-react'
+import { formatTime } from '@/lib/timeUtils'
 
 export function MyBookings() {
   const { profile } = useAuth()
@@ -162,8 +163,8 @@ export function MyBookings() {
                       {format(parseISO(booking.booking_date), 'EEEE, MMMM dd, yyyy')}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {booking.start_time}
-                      {booking.end_time && ` - ${booking.end_time}`}
+                      {formatTime(booking.start_time)}
+                      {booking.end_time && ` - ${formatTime(booking.end_time)}`}
                       {!booking.end_time && ' (Full Day)'}
                     </div>
                     {booking.desks?.equipment && booking.desks.equipment.length > 0 && (

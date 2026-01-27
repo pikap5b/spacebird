@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns'
 import { BarChart3, TrendingUp, Calendar, Users } from 'lucide-react'
+import { formatTime } from '@/lib/timeUtils'
 
 export function AdminReports() {
   const today = new Date()
@@ -277,7 +278,7 @@ export function AdminReports() {
                       {booking.desks?.name} • {booking.desks?.floors?.locations?.name}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {format(new Date(booking.booking_date), 'MMM dd, yyyy')} • {booking.start_time}
+                      {format(new Date(booking.booking_date), 'MMM dd, yyyy')} • {formatTime(booking.start_time)}
                     </div>
                   </div>
                   <div className="text-sm">

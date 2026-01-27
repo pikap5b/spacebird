@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Calendar, Plus, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import { formatTime } from '@/lib/timeUtils'
 
 export function Dashboard() {
   const { profile } = useAuth()
@@ -90,8 +91,8 @@ export function Dashboard() {
                     </div>
                     <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                       <Clock className="h-3 w-3" />
-                      {booking.start_time}
-                      {booking.end_time && ` - ${booking.end_time}`}
+                      {formatTime(booking.start_time)}
+                      {booking.end_time && ` - ${formatTime(booking.end_time)}`}
                     </div>
                   </div>
                 ))}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, parse } from 'date-fns'
 import { Clock, Users, Calendar, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatTime as formatTimeUtil } from '@/lib/timeUtils'
 
 interface Booking {
   id: string
@@ -69,6 +70,7 @@ export function TimelineView({
     return hours + minutes / 60
   }
 
+
   const getBookingPosition = (booking: Booking) => {
     const start = parseTime(booking.start_time)
     const end = booking.end_time ? parseTime(booking.end_time) : 24
@@ -112,14 +114,19 @@ export function TimelineView({
     const slotStart = hour
     const slotEnd = hour + 1
 
+    // Check against ALL active bookings (regardless of user)
+    // If ANY booking overlaps with this slot, it's not available
     return !desk.bookings.some((booking) => {
+      // Skip cancelled bookings - they don't block the slot
+      if (booking.status === 'cancelled') return false
+
       const bookingStart = parseTime(booking.start_time)
       // Handle all-day bookings (end_time is null or 23:59)
       const bookingEnd = booking.end_time
         ? parseTime(booking.end_time)
         : 24 // All day extends to end of day
 
-      // Check for overlap
+      // Check for any overlap - if ANY part overlaps, slot is not available
       return (
         (slotStart >= bookingStart && slotStart < bookingEnd) ||
         (slotEnd > bookingStart && slotEnd <= bookingEnd) ||
@@ -326,7 +333,7 @@ export function TimelineView({
                       title={
                         isAllDay
                           ? 'All day booked'
-                          : `${booking.start_time} - ${booking.end_time || 'End of day'}`
+                          : `${formatTimeUtil(booking.start_time)} - ${formatTimeUtil(booking.end_time || '24:00')}`
                       }
                     >
                       {isAllDay ? (
@@ -339,13 +346,13 @@ export function TimelineView({
                           <div className="flex items-center gap-1.5">
                             <Clock className="h-3 w-3 flex-shrink-0" />
                             <span className="font-medium">
-                              {booking.start_time} – {booking.end_time || '24:00'}
+                              {formatTimeUtil(booking.start_time)} – {formatTimeUtil(booking.end_time || '24:00')}
                             </span>
                           </div>
                           <div className="text-[10px] opacity-90 mt-0.5 font-medium">
                             {isMyBooking
                               ? 'My booking'
-                              : booking.user?.full_name || booking.user?.email || 'Booked'}
+                              : booking.user?.full_name || booking.user?.email || 'Unknown user'}
                           </div>
                         </>
                       )}

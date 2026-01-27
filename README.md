@@ -205,9 +205,10 @@ CREATE POLICY "Admins can manage desks" ON desks
     )
   );
 
--- Reservations: Users can view and manage their own, admins can view all
-CREATE POLICY "Users can view own reservations" ON reservations
-  FOR SELECT USING (auth.uid() = user_id);
+-- Reservations: Everyone can view all reservations (for availability checking)
+-- Users can only create/update their own reservations
+CREATE POLICY "Everyone can view reservations for availability" ON reservations
+  FOR SELECT USING (true);
 
 CREATE POLICY "Users can create own reservations" ON reservations
   FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -215,8 +216,9 @@ CREATE POLICY "Users can create own reservations" ON reservations
 CREATE POLICY "Users can update own reservations" ON reservations
   FOR UPDATE USING (auth.uid() = user_id);
 
-CREATE POLICY "Admins can view all reservations" ON reservations
-  FOR SELECT USING (
+-- Admins can delete any reservation (optional, for management)
+CREATE POLICY "Admins can delete reservations" ON reservations
+  FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM user_roles
       WHERE user_roles.user_id = auth.uid()
