@@ -10,7 +10,6 @@ import { Select } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TimelineView } from '@/components/TimelineView'
 import { format, parse } from 'date-fns'
-import { Calendar, Grid, List } from 'lucide-react'
 
 export function BookDesk() {
   const { profile } = useAuth()
@@ -23,7 +22,6 @@ export function BookDesk() {
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('17:00')
   const [fullDay, setFullDay] = useState(false)
-  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline')
 
   // Fetch locations
   const { data: locations } = useQuery({
@@ -144,6 +142,8 @@ export function BookDesk() {
   const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
 
   // Check for time conflicts (including all-day bookings)
+  // This is a client-side check for immediate feedback
+  // The server-side check in bookingMutation is the final authority
   const checkTimeConflict = (deskId: string, start: string, end: string): boolean => {
     const desk = desks?.find((d: any) => d.id === deskId)
     if (!desk || !desk.bookings || desk.bookings.length === 0) return false
@@ -156,6 +156,7 @@ export function BookDesk() {
     const bookingStart = parseTime(start)
     const bookingEnd = parseTime(end)
 
+    // Check against ALL bookings (confirmed and checked_in) regardless of user
     return desk.bookings.some((booking: any) => {
       const existingStart = parseTime(booking.start_time)
       // Handle all-day bookings (end_time is null or 23:59)
@@ -163,7 +164,7 @@ export function BookDesk() {
         ? parseTime(booking.end_time)
         : 24 // All day extends to end of day
 
-      // Check for overlap
+      // Check for any overlap - if ANY part overlaps, it's a conflict
       return (
         (bookingStart >= existingStart && bookingStart < existingEnd) ||
         (bookingEnd > existingStart && bookingEnd <= existingEnd) ||
@@ -179,10 +180,43 @@ export function BookDesk() {
       const finalStartTime = fullDay ? '00:00' : startTime
       const finalEndTime = fullDay ? '23:59' : endTime
 
-      // Check for conflicts
-      if (checkTimeConflict(selectedDesk.id, finalStartTime, finalEndTime)) {
+      // Double-check for conflicts by querying the database directly
+      // This prevents race conditions where another user books the same slot
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('desk_id', selectedDesk.id)
+        .eq('booking_date', selectedDate)
+        .in('status', ['confirmed', 'checked_in'])
+
+      if (checkError) throw checkError
+
+      // Check for conflicts with existing bookings
+      const parseTime = (timeStr: string): number => {
+        const [hours, minutes] = timeStr.split(':').map(Number)
+        return hours + minutes / 60
+      }
+
+      const bookingStart = parseTime(finalStartTime)
+      const bookingEnd = parseTime(finalEndTime)
+
+      const hasConflict = existingBookings?.some((existing: any) => {
+        const existingStart = parseTime(existing.start_time)
+        const existingEnd = existing.end_time
+          ? parseTime(existing.end_time)
+          : 24 // All day
+
+        // Check for any overlap
+        return (
+          (bookingStart >= existingStart && bookingStart < existingEnd) ||
+          (bookingEnd > existingStart && bookingEnd <= existingEnd) ||
+          (bookingStart <= existingStart && bookingEnd >= existingEnd)
+        )
+      })
+
+      if (hasConflict) {
         throw new Error(
-          'This time slot is already booked. Please select a different time.'
+          'This time slot is already booked by another user. Please select a different time.'
         )
       }
 
@@ -304,46 +338,20 @@ export function BookDesk() {
         </CardContent>
       </Card>
 
-      {selectedFloorData && desks && (
+      {desks && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Available Desks</CardTitle>
-                <CardDescription>
-                  {viewMode === 'timeline' ? (
-                    <>
-                      {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')} • Click on an available time slot to book. Green = Available, Red = Booked, Blue = Your Booking
-                    </>
-                  ) : (
-                    'Click on a desk to book it. Green = Available, Red = Occupied, Blue = Your Booking'
-                  )}
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={viewMode === 'timeline' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('timeline')}
-                  title="Timeline View"
-                >
-                  <Calendar className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  title="Grid View"
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-              </div>
+            <div>
+              <CardTitle>Available Desks</CardTitle>
+              <CardDescription>
+                {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')} • Click on an available time slot to book
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
             {desksLoading ? (
               <div className="text-center py-8 text-muted-foreground">Loading desks...</div>
-            ) : viewMode === 'timeline' ? (
+            ) : (
               <TimelineView
                 desks={desks}
                 selectedDate={selectedDate}
@@ -351,56 +359,6 @@ export function BookDesk() {
                 onSlotClick={handleTimelineSlotClick}
                 onBookingClick={handleBookingClick}
               />
-            ) : (
-              <div
-                className="grid gap-2 p-4 border rounded-lg"
-                style={{
-                  gridTemplateColumns: `repeat(${selectedFloorData.grid_cols}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${selectedFloorData.grid_rows}, minmax(0, 1fr))`,
-                }}
-              >
-                {Array.from({ length: selectedFloorData.grid_rows * selectedFloorData.grid_cols }).map((_, index) => {
-                  const row = Math.floor(index / selectedFloorData.grid_cols) + 1
-                  const col = (index % selectedFloorData.grid_cols) + 1
-                  const desk = desks.find(
-                    (d: any) => d.grid_row === row && d.grid_col === col
-                  )
-
-                  if (!desk) {
-                    return (
-                      <div
-                        key={index}
-                        className="aspect-square border border-dashed border-muted rounded flex items-center justify-center text-muted-foreground text-xs"
-                      >
-                        Empty
-                      </div>
-                    )
-                  }
-
-                  const getDeskColor = () => {
-                    if (desk.isMyBooking) return 'bg-blue-500 hover:bg-blue-600 text-white'
-                    if (desk.isReserved) return 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                    return 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
-                  }
-
-                  return (
-                    <button
-                      key={desk.id}
-                      onClick={() => handleDeskClick(desk)}
-                      disabled={desk.isReserved && !desk.isMyBooking}
-                      className={`aspect-square border rounded flex flex-col items-center justify-center p-2 transition-colors ${getDeskColor()}`}
-                      title={desk.name}
-                    >
-                      <div className="text-xs font-medium text-center">{desk.name}</div>
-                      {desk.equipment && desk.equipment.length > 0 && (
-                        <div className="text-[10px] mt-1 opacity-90">
-                          {desk.equipment.length} items
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
             )}
           </CardContent>
         </Card>
