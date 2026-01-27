@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { format } from 'date-fns'
-import { CheckCircle2, XCircle, Circle } from 'lucide-react'
+import { TimelineView } from '@/components/TimelineView'
+import { format, parse } from 'date-fns'
+import { Calendar, Grid, List } from 'lucide-react'
 
 export function BookDesk() {
   const { profile } = useAuth()
@@ -22,6 +23,7 @@ export function BookDesk() {
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('17:00')
   const [fullDay, setFullDay] = useState(false)
+  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline')
 
   // Fetch locations
   const { data: locations } = useQuery({
@@ -52,7 +54,7 @@ export function BookDesk() {
     enabled: !!selectedLocation,
   })
 
-  // Fetch desks for selected floor
+  // Fetch desks for selected floor with bookings
   const { data: desks, isLoading: desksLoading } = useQuery({
     queryKey: ['desks', selectedFloor, selectedDate],
     queryFn: async () => {
@@ -67,36 +69,96 @@ export function BookDesk() {
       
       if (desksError) throw desksError
 
-      // Get reservations for the selected date
+      // Get reservations for the selected date with user info
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('*')
+        .select(`
+          *,
+          users (
+            id,
+            email,
+            full_name
+          )
+        `)
         .eq('booking_date', selectedDate)
         .in('status', ['confirmed', 'checked_in'])
 
       if (reservationsError) throw reservationsError
 
-      // Map reservations to desks
-      const reservedDeskIds = new Set(
-        reservations?.map((r: any) => r.desk_id) || []
-      )
+      // Map reservations to desks with time slot information
+      return (desksData || []).map((desk: any) => {
+        const deskBookings = (reservations || []).filter(
+          (r: any) => r.desk_id === desk.id
+        )
 
-      return (desksData || []).map((desk: any) => ({
-        ...desk,
-        isReserved: reservedDeskIds.has(desk.id),
-        isMyBooking: reservations?.some(
-          (r: any) => r.desk_id === desk.id && r.user_id === profile?.id
-        ),
-      }))
+        // For grid view compatibility
+        const reservedDeskIds = new Set(
+          reservations?.map((r: any) => r.desk_id) || []
+        )
+
+        return {
+          ...desk,
+          bookings: deskBookings.map((b: any) => ({
+            id: b.id,
+            start_time: b.start_time,
+            end_time: b.end_time,
+            user_id: b.user_id,
+            status: b.status,
+            user: b.users,
+          })),
+          isReserved: reservedDeskIds.has(desk.id),
+          isMyBooking: deskBookings.some(
+            (r: any) => r.user_id === profile?.id
+          ),
+        }
+      })
     },
     enabled: !!selectedFloor && !!selectedDate,
   })
 
   const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
 
+  // Check for time conflicts
+  const checkTimeConflict = (deskId: string, start: string, end: string): boolean => {
+    const desk = desks?.find((d: any) => d.id === deskId)
+    if (!desk || !desk.bookings || desk.bookings.length === 0) return false
+
+    const parseTime = (timeStr: string): number => {
+      const [hours, minutes] = timeStr.split(':').map(Number)
+      return hours + minutes / 60
+    }
+
+    const bookingStart = parseTime(start)
+    const bookingEnd = parseTime(end)
+
+    return desk.bookings.some((booking: any) => {
+      const existingStart = parseTime(booking.start_time)
+      const existingEnd = booking.end_time
+        ? parseTime(booking.end_time)
+        : existingStart + 1
+
+      // Check for overlap
+      return (
+        (bookingStart >= existingStart && bookingStart < existingEnd) ||
+        (bookingEnd > existingStart && bookingEnd <= existingEnd) ||
+        (bookingStart <= existingStart && bookingEnd >= existingEnd)
+      )
+    })
+  }
+
   const bookingMutation = useMutation({
     mutationFn: async () => {
       if (!selectedDesk || !profile?.id) throw new Error('Missing required data')
+
+      const finalStartTime = fullDay ? '00:00' : startTime
+      const finalEndTime = fullDay ? '23:59' : endTime
+
+      // Check for conflicts
+      if (checkTimeConflict(selectedDesk.id, finalStartTime, finalEndTime)) {
+        throw new Error(
+          'This time slot is already booked. Please select a different time.'
+        )
+      }
 
       const { data, error } = await supabase
         .from('reservations')
@@ -104,8 +166,8 @@ export function BookDesk() {
           user_id: profile.id,
           desk_id: selectedDesk.id,
           booking_date: selectedDate,
-          start_time: fullDay ? '00:00' : startTime,
-          end_time: fullDay ? '23:59' : endTime,
+          start_time: finalStartTime,
+          end_time: finalEndTime,
           status: 'confirmed',
         })
         .select()
@@ -119,6 +181,9 @@ export function BookDesk() {
       queryClient.invalidateQueries({ queryKey: ['upcoming-bookings'] })
       setBookingModalOpen(false)
       setSelectedDesk(null)
+      setStartTime('09:00')
+      setEndTime('17:00')
+      setFullDay(false)
     },
   })
 
@@ -126,6 +191,22 @@ export function BookDesk() {
     if (desk.isReserved && !desk.isMyBooking) return
     setSelectedDesk(desk)
     setBookingModalOpen(true)
+  }
+
+  const handleTimelineSlotClick = (desk: any, startTime: string, endTime: string) => {
+    setSelectedDesk(desk)
+    setStartTime(startTime)
+    setEndTime(endTime)
+    setFullDay(false)
+    setBookingModalOpen(true)
+  }
+
+  const handleBookingClick = (booking: any, desk: any) => {
+    // Could show booking details or allow editing if it's the user's booking
+    if (booking.user_id === profile?.id) {
+      // Show edit/cancel options
+      console.log('Your booking:', booking)
+    }
   }
 
   const handleConfirmBooking = () => {
@@ -199,14 +280,50 @@ export function BookDesk() {
       {selectedFloorData && desks && (
         <Card>
           <CardHeader>
-            <CardTitle>Available Desks</CardTitle>
-            <CardDescription>
-              Click on a desk to book it. Green = Available, Red = Occupied, Blue = Your Booking
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Available Desks</CardTitle>
+                <CardDescription>
+                  {viewMode === 'timeline' ? (
+                    <>
+                      {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')} • Click on an available time slot to book. Green = Available, Red = Booked, Blue = Your Booking
+                    </>
+                  ) : (
+                    'Click on a desk to book it. Green = Available, Red = Occupied, Blue = Your Booking'
+                  )}
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === 'timeline' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('timeline')}
+                  title="Timeline View"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  title="Grid View"
+                >
+                  <Grid className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {desksLoading ? (
               <div className="text-center py-8 text-muted-foreground">Loading desks...</div>
+            ) : viewMode === 'timeline' ? (
+              <TimelineView
+                desks={desks}
+                selectedDate={selectedDate}
+                currentUserId={profile?.id}
+                onSlotClick={handleTimelineSlotClick}
+                onBookingClick={handleBookingClick}
+              />
             ) : (
               <div
                 className="grid gap-2 p-4 border rounded-lg"
@@ -317,6 +434,13 @@ export function BookDesk() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+            {bookingMutation.error && (
+              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                {bookingMutation.error instanceof Error
+                  ? bookingMutation.error.message
+                  : 'Failed to create booking'}
               </div>
             )}
           </div>
