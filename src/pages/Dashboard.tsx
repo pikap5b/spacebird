@@ -45,18 +45,18 @@ export function Dashboard() {
   })
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
-          <p className="text-gray-600 mt-1">
-            Overview of your upcoming bookings
+          <h1 className="text-3xl font-bold">Welcome back, {profile?.full_name || 'User'}!</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your workspace bookings and find your perfect desk.
           </p>
         </div>
         <Link to="/book">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Book a Space
+            Book a Desk
           </Button>
         </Link>
       </div>
@@ -115,7 +115,7 @@ export function Dashboard() {
             <Link to="/book" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Plus className="h-4 w-4 mr-2" />
-                Book a New Space
+                Book a New Desk
               </Button>
             </Link>
             <Link to="/bookings" className="block">
@@ -130,3 +130,4 @@ export function Dashboard() {
     </div>
   )
 }
+
