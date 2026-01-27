@@ -51,7 +51,7 @@ function App() {
         path="/admin"
         element={
           <ProtectedRoute requireAdmin>
-            <Layout>
+            <Layout showSidebar={false}>
               <AdminDashboard />
             </Layout>
           </ProtectedRoute>
@@ -61,7 +61,7 @@ function App() {
         path="/admin/locations"
         element={
           <ProtectedRoute requireAdmin>
-            <Layout>
+            <Layout showSidebar={false}>
               <AdminLocations />
             </Layout>
           </ProtectedRoute>
@@ -71,7 +71,7 @@ function App() {
         path="/admin/floors"
         element={
           <ProtectedRoute requireAdmin>
-            <Layout>
+            <Layout showSidebar={false}>
               <AdminFloors />
             </Layout>
           </ProtectedRoute>
@@ -81,7 +81,7 @@ function App() {
         path="/admin/desks"
         element={
           <ProtectedRoute requireAdmin>
-            <Layout>
+            <Layout showSidebar={false}>
               <AdminDesks />
             </Layout>
           </ProtectedRoute>
@@ -91,7 +91,7 @@ function App() {
         path="/admin/reports"
         element={
           <ProtectedRoute requireAdmin>
-            <Layout>
+            <Layout showSidebar={false}>
               <AdminReports />
             </Layout>
           </ProtectedRoute>

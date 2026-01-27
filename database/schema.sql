@@ -92,12 +92,18 @@ ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own profile" ON users
   FOR SELECT USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert own profile" ON users
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE USING (auth.uid() = id);
 
--- User roles: Users can read their own role
+-- User roles: Users can read and insert their own role
 CREATE POLICY "Users can view own role" ON user_roles
   FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own role" ON user_roles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Locations: Everyone can read, only admins can modify
 CREATE POLICY "Everyone can view locations" ON locations

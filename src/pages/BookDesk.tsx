@@ -1,27 +1,21 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { format } from 'date-fns'
-import { CheckCircle2, XCircle, Circle } from 'lucide-react'
+import { Calendar, MapPin, Layers, Grid, List, Map } from 'lucide-react'
+import { TimelineView } from '@/components/TimelineView'
+import { Select } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 export function BookDesk() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const [selectedLocation, setSelectedLocation] = useState<string>('')
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
-  const [selectedFloor, setSelectedFloor] = useState<string>('')
-  const [selectedDesk, setSelectedDesk] = useState<any>(null)
-  const [bookingModalOpen, setBookingModalOpen] = useState(false)
-  const [startTime, setStartTime] = useState('09:00')
-  const [endTime, setEndTime] = useState('17:00')
-  const [fullDay, setFullDay] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [selectedFloor, setSelectedFloor] = useState<string | null>(null)
+  const [spaceType, setSpaceType] = useState<string>('All')
+  const [viewMode, setViewMode] = useState<'timeline' | 'grid' | 'list'>('timeline')
 
   // Fetch locations
   const { data: locations } = useQuery({
@@ -52,285 +46,148 @@ export function BookDesk() {
     enabled: !!selectedLocation,
   })
 
-  // Fetch desks for selected floor
-  const { data: desks, isLoading: desksLoading } = useQuery({
-    queryKey: ['desks', selectedFloor, selectedDate],
-    queryFn: async () => {
-      if (!selectedFloor) return []
-      
-      // Get all desks for the floor
-      const { data: desksData, error: desksError } = await supabase
-        .from('desks')
-        .select('*')
-        .eq('floor_id', selectedFloor)
-        .order('name')
-      
-      if (desksError) throw desksError
-
-      // Get reservations for the selected date
-      const { data: reservations, error: reservationsError } = await supabase
-        .from('reservations')
-        .select('*')
-        .eq('booking_date', selectedDate)
-        .in('status', ['confirmed', 'checked_in'])
-
-      if (reservationsError) throw reservationsError
-
-      // Map reservations to desks
-      const reservedDeskIds = new Set(
-        reservations?.map((r: any) => r.desk_id) || []
-      )
-
-      return (desksData || []).map((desk: any) => ({
-        ...desk,
-        isReserved: reservedDeskIds.has(desk.id),
-        isMyBooking: reservations?.some(
-          (r: any) => r.desk_id === desk.id && r.user_id === profile?.id
-        ),
-      }))
-    },
-    enabled: !!selectedFloor && !!selectedDate,
-  })
-
-  const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
-
-  const bookingMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedDesk || !profile?.id) throw new Error('Missing required data')
-
-      const { data, error } = await supabase
-        .from('reservations')
-        .insert({
-          user_id: profile.id,
-          desk_id: selectedDesk.id,
-          booking_date: selectedDate,
-          start_time: fullDay ? '00:00' : startTime,
-          end_time: fullDay ? '23:59' : endTime,
-          status: 'confirmed',
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['desks'] })
-      queryClient.invalidateQueries({ queryKey: ['upcoming-bookings'] })
-      setBookingModalOpen(false)
-      setSelectedDesk(null)
-    },
-  })
-
-  const handleDeskClick = (desk: any) => {
-    if (desk.isReserved && !desk.isMyBooking) return
-    setSelectedDesk(desk)
-    setBookingModalOpen(true)
+  // Auto-select first location if available
+  if (locations && locations.length > 0 && !selectedLocation) {
+    setSelectedLocation(locations[0].id)
   }
 
-  const handleConfirmBooking = () => {
-    bookingMutation.mutate()
-  }
+  const spaceTypes = ['All', 'Desks', 'Meeting rooms', 'Parking spots', 'Others']
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Book a Desk</h1>
-        <p className="text-muted-foreground mt-1">
-          Select a location, date, and floor to view available desks
-        </p>
+    <div className="h-full flex flex-col">
+      {/* Page Header */}
+      <div className="px-6 py-4 bg-white border-b border-gray-200">
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Book a space</h1>
+
+        {/* Space Type Tabs */}
+        <div className="flex gap-1 mb-4">
+          {spaceTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setSpaceType(type)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                spaceType === type
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Date Selector */}
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <Input
+              type="date"
+              value={format(selectedDate, 'yyyy-MM-dd')}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="w-auto"
+            />
+            <span className="text-sm text-gray-600">
+              {format(selectedDate, 'EEEE, MMM dd, yyyy')}
+            </span>
+          </div>
+
+          {/* Location Filter */}
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-gray-500" />
+            <Select
+              value={selectedLocation}
+              onChange={(e) => {
+                setSelectedLocation(e.target.value)
+                setSelectedFloor(null)
+              }}
+              className="w-48"
+            >
+              <option value="">Select location</option>
+              {locations?.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Floor Filter */}
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-gray-500" />
+            <Select
+              value={selectedFloor || ''}
+              onChange={(e) => setSelectedFloor(e.target.value || null)}
+              className="w-40"
+              disabled={!selectedLocation}
+            >
+              <option value="">All floors</option>
+              {floors?.map((floor) => (
+                <option key={floor.id} value={floor.id}>
+                  {floor.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* View Mode Controls */}
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`p-2 rounded ${
+                viewMode === 'timeline'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title="Timeline view"
+            >
+              <Grid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded ${
+                viewMode === 'grid'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title="Grid view"
+            >
+              <Map className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded ${
+                viewMode === 'list'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Booking Options</CardTitle>
-          <CardDescription>Choose your workspace preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Select
-                id="location"
-                value={selectedLocation}
-                onChange={(e) => {
-                  setSelectedLocation(e.target.value)
-                  setSelectedFloor('')
-                }}
-              >
-                <option value="">Select a location</option>
-                {locations?.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={format(new Date(), 'yyyy-MM-dd')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="floor">Floor</Label>
-              <Select
-                id="floor"
-                value={selectedFloor}
-                onChange={(e) => setSelectedFloor(e.target.value)}
-                disabled={!selectedLocation}
-              >
-                <option value="">Select a floor</option>
-                {floors?.map((floor) => (
-                  <option key={floor.id} value={floor.id}>
-                    {floor.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-6">
+        {!selectedLocation ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            Please select a location to view available spaces
           </div>
-        </CardContent>
-      </Card>
-
-      {selectedFloorData && desks && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Desks</CardTitle>
-            <CardDescription>
-              Click on a desk to book it. Green = Available, Red = Occupied, Blue = Your Booking
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {desksLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading desks...</div>
-            ) : (
-              <div
-                className="grid gap-2 p-4 border rounded-lg"
-                style={{
-                  gridTemplateColumns: `repeat(${selectedFloorData.grid_cols}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${selectedFloorData.grid_rows}, minmax(0, 1fr))`,
-                }}
-              >
-                {Array.from({ length: selectedFloorData.grid_rows * selectedFloorData.grid_cols }).map((_, index) => {
-                  const row = Math.floor(index / selectedFloorData.grid_cols) + 1
-                  const col = (index % selectedFloorData.grid_cols) + 1
-                  const desk = desks.find(
-                    (d: any) => d.grid_row === row && d.grid_col === col
-                  )
-
-                  if (!desk) {
-                    return (
-                      <div
-                        key={index}
-                        className="aspect-square border border-dashed border-muted rounded flex items-center justify-center text-muted-foreground text-xs"
-                      >
-                        Empty
-                      </div>
-                    )
-                  }
-
-                  const getDeskColor = () => {
-                    if (desk.isMyBooking) return 'bg-blue-500 hover:bg-blue-600 text-white'
-                    if (desk.isReserved) return 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                    return 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
-                  }
-
-                  return (
-                    <button
-                      key={desk.id}
-                      onClick={() => handleDeskClick(desk)}
-                      disabled={desk.isReserved && !desk.isMyBooking}
-                      className={`aspect-square border rounded flex flex-col items-center justify-center p-2 transition-colors ${getDeskColor()}`}
-                      title={desk.name}
-                    >
-                      <div className="text-xs font-medium text-center">{desk.name}</div>
-                      {desk.equipment && desk.equipment.length > 0 && (
-                        <div className="text-[10px] mt-1 opacity-90">
-                          {desk.equipment.length} items
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Book Desk: {selectedDesk?.name}</DialogTitle>
-            <DialogDescription>
-              Confirm your booking details
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>
-                <input
-                  type="checkbox"
-                  checked={fullDay}
-                  onChange={(e) => setFullDay(e.target.checked)}
-                  className="mr-2"
-                />
-                Full Day Booking
-              </Label>
-            </div>
-            {!fullDay && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="startTime">Start Time</Label>
-                  <Input
-                    id="startTime"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endTime">End Time</Label>
-                  <Input
-                    id="endTime"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-            {selectedDesk?.equipment && selectedDesk.equipment.length > 0 && (
-              <div>
-                <Label>Equipment</Label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedDesk.equipment.map((eq: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 bg-secondary text-secondary-foreground rounded text-sm"
-                    >
-                      {eq}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+        ) : viewMode === 'timeline' ? (
+          <TimelineView
+            selectedDate={selectedDate}
+            selectedLocation={selectedLocation}
+            selectedFloor={selectedFloor}
+            spaceType={spaceType}
+          />
+        ) : (
+          <div className="text-center text-gray-500 py-12">
+            {viewMode === 'grid' ? 'Grid view coming soon' : 'List view coming soon'}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBookingModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmBooking} disabled={bookingMutation.isPending}>
-              {bookingMutation.isPending ? 'Booking...' : 'Confirm Booking'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
     </div>
   )
 }
-
