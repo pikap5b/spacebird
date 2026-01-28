@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Building2 } from 'lucide-react'
 
 export function Register() {
   const [email, setEmail] = useState('')
@@ -34,7 +35,12 @@ export function Register() {
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">SpaceBird</CardTitle>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#0f172b] text-white">
+              <Building2 className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-[#0f172b]">SpaceBird</CardTitle>
+          </div>
           <CardDescription className="text-center">
             Create a new account
           </CardDescription>
@@ -84,7 +90,7 @@ export function Register() {
             </Button>
             <div className="text-center text-sm">
               <span className="text-muted-foreground">Already have an account? </span>
-              <Link to="/login" className="text-primary hover:underline">
+              <Link to="/login" className="text-[#0f172b] hover:underline font-medium">
                 Sign in
               </Link>
             </div>

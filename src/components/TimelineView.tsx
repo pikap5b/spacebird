@@ -160,8 +160,8 @@ export function TimelineView({
 
   const getBookingColor = (booking: Booking) => {
     if (booking.user_id === currentUserId) {
-      // Primary accent color for user's own bookings
-      return 'bg-primary hover:bg-primary/90 text-primary-foreground'
+      // Dark blue for user's own bookings
+      return 'bg-[#0f172b] hover:bg-[#1e293b] text-white'
     }
     // Muted blue/grey for other users' bookings
     return 'bg-slate-400 hover:bg-slate-500 text-white'
@@ -283,14 +283,14 @@ export function TimelineView({
                           return (
                             <div
                               key={hour}
-                              className={cn(
-                                'flex-1 border-r border-solid transition-colors relative flex-shrink-0',
-                                'min-w-[60px]',
-                                available
-                                  ? 'bg-white hover:bg-accent/50 cursor-pointer'
-                                  : 'bg-slate-100/50 cursor-not-allowed',
-                                isSelected && 'bg-primary/20 ring-2 ring-primary'
-                              )}
+                        className={cn(
+                          'flex-1 border-r border-solid transition-colors relative flex-shrink-0',
+                          'min-w-[60px]',
+                          available
+                            ? 'bg-white hover:bg-[#f1f5f9] cursor-pointer'
+                            : 'bg-slate-100/50 cursor-not-allowed',
+                          isSelected && 'bg-[#0f172b]/10 ring-2 ring-[#0f172b]'
+                        )}
                               style={{
                                 borderColor: '#e5e7eb',
                               }}
@@ -318,12 +318,12 @@ export function TimelineView({
                   return (
                     <div
                       key={booking.id}
-                      className={cn(
-                        'absolute top-2 bottom-2 rounded px-3 py-1.5 text-xs cursor-pointer shadow-sm',
-                        getBookingColor(booking),
-                        isMyBooking && 'ring-2 ring-primary/30',
-                        isAllDay && 'min-w-[100px]'
-                      )}
+                        className={cn(
+                          'absolute top-2 bottom-2 rounded px-3 py-1.5 text-xs cursor-pointer shadow-sm',
+                          getBookingColor(booking),
+                          isMyBooking && 'ring-2 ring-[#0f172b]/30',
+                          isAllDay && 'min-w-[100px]'
+                        )}
                       style={{
                         left: position.left,
                         width: position.width,
