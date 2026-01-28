@@ -203,13 +203,13 @@ export function TimelineView({
         
         {/* Header with time slots */}
         <div className="sticky top-[73px] z-10 bg-background border-b">
-          <div className="flex">
-            <div className="w-64 p-4 font-semibold border-r bg-background box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>Desk / Space</div>
+          <div className="flex items-center">
+            <div className="w-64 p-4 font-semibold border-r bg-background box-border flex items-center" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>Desk / Space</div>
             <div className="flex-1 flex bg-white overflow-x-auto">
               {WORKING_HOURS.map((hour) => (
                 <div
                   key={hour}
-                  className="flex-1 border-r border-solid p-2 text-center text-sm font-medium min-w-[60px] flex-shrink-0"
+                  className="flex-1 border-r border-solid p-2 text-center text-sm font-medium min-w-[60px] flex-shrink-0 flex items-center justify-center"
                   style={{
                     borderColor: '#e5e7eb',
                   }}
