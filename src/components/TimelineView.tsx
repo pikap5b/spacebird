@@ -204,7 +204,7 @@ export function TimelineView({
         {/* Header with time slots */}
         <div className="sticky top-[73px] z-10 bg-background border-b">
           <div className="flex">
-            <div className="w-64 p-4 font-semibold border-r bg-background">Desk / Space</div>
+            <div className="w-64 p-4 font-semibold border-r bg-background box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>Desk / Space</div>
             <div className="flex-1 flex bg-white overflow-x-auto">
               {WORKING_HOURS.map((hour) => (
                 <div
@@ -227,7 +227,7 @@ export function TimelineView({
             <div key={floorGroup.floorId} className="border-b">
               {/* Floor header */}
               <div className="flex bg-slate-100/50 border-b">
-                <div className="w-64 p-3 border-r bg-slate-100/50" style={{ borderRightColor: '#e5e7eb' }}>
+                <div className="w-64 p-4 border-r bg-slate-100/50 box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>
                   <div className="font-bold text-base text-gray-800">
                     {floorGroup.floorName}
                   </div>
@@ -247,10 +247,10 @@ export function TimelineView({
                   {/* Desk info column */}
                   <div 
                     className={cn(
-                      "w-64 p-4 border-r flex flex-col justify-center relative",
+                      "w-64 p-4 border-r flex flex-col justify-center relative box-border",
                       desk.isUnavailable ? "bg-gray-100/50" : "bg-white"
                     )}
-                    style={{ borderRightColor: '#e5e7eb' }}
+                    style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}
                     onMouseEnter={() => setHoveredDeskId(desk.id)}
                     onMouseLeave={() => setHoveredDeskId(null)}
                   >
