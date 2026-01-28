@@ -202,7 +202,7 @@ export function TimelineView({
         </div>
         
         {/* Header with time slots */}
-        <div className="sticky top-[73px] z-20 bg-background border-b shadow-sm">
+        <div className="sticky top-[73px] z-10 bg-background border-b">
           <div className="flex">
             <div className="w-64 p-4 font-semibold border-r bg-background box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>Desk / Space</div>
             <div className="flex-1 flex bg-white overflow-x-auto">
@@ -222,11 +222,11 @@ export function TimelineView({
         </div>
 
         {/* Floor groups */}
-        <div className="relative">
+        <div className="mt-0">
           {sortedFloorGroups.map((floorGroup, floorIndex) => (
             <div key={floorGroup.floorId} className="border-b">
               {/* Floor header */}
-              <div className="flex bg-slate-100/50 border-b relative" style={{ zIndex: floorIndex === 0 ? 15 : 10 }}>
+              <div className="flex bg-slate-100/50 border-b relative" style={{ marginTop: floorIndex === 0 ? '57px' : '0' }}>
                 <div className="w-64 p-4 border-r bg-slate-100/50 box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>
                   <div className="font-bold text-base text-gray-800">
                     {floorGroup.floorName}
