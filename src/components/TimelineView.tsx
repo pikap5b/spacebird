@@ -202,10 +202,10 @@ export function TimelineView({
         </div>
         
         {/* Header with time slots */}
-        <div className="sticky top-[73px] z-10 bg-slate-100/50 border-b border-gray-200">
+        <div className="sticky top-[73px] z-10 bg-background border-b">
           <div className="flex">
-            <div className="w-64 p-4 font-semibold border-r bg-slate-100/50">Desk / Space</div>
-            <div className="flex-1 flex bg-slate-100/50 overflow-x-auto">
+            <div className="w-64 p-4 font-semibold border-r bg-background">Desk / Space</div>
+            <div className="flex-1 flex bg-white overflow-x-auto">
               {WORKING_HOURS.map((hour) => (
                 <div
                   key={hour}
@@ -223,27 +223,34 @@ export function TimelineView({
 
         {/* Floor groups */}
         <div>
-          {sortedFloorGroups.map((floorGroup) => (
-            <div key={floorGroup.floorId} className="border-b border-gray-200">
+          {sortedFloorGroups.map((floorGroup, floorIndex) => (
+            <div key={floorGroup.floorId} className="border-b">
               {/* Floor header */}
-              <div className="flex bg-slate-100/50 border-b border-gray-200">
-                <div className="w-64 p-3 border-r bg-slate-100/50">
+              <div className="flex bg-slate-100/50 border-b">
+                <div className="w-64 p-3 border-r bg-slate-100/50" style={{ borderRightColor: '#e5e7eb' }}>
                   <div className="font-bold text-base text-gray-800">
                     {floorGroup.floorName}
                   </div>
                 </div>
-                <div className="flex-1 bg-slate-100/50" />
+                <div className="flex-1 bg-white" />
               </div>
 
               {/* Desks in this floor */}
-              {floorGroup.desks.map((desk) => (
-                <div key={desk.id} className="flex min-h-[100px] bg-white hover:bg-slate-50/50 border-b border-gray-100">
+              {floorGroup.desks.map((desk, deskIndex) => (
+                <div 
+                  key={desk.id} 
+                  className={cn(
+                    "flex min-h-[100px] bg-white hover:bg-slate-50/50",
+                    deskIndex < floorGroup.desks.length - 1 && "border-b border-gray-100"
+                  )}
+                >
                   {/* Desk info column */}
                   <div 
                     className={cn(
                       "w-64 p-4 border-r flex flex-col justify-center relative",
                       desk.isUnavailable ? "bg-gray-100/50" : "bg-white"
                     )}
+                    style={{ borderRightColor: '#e5e7eb' }}
                     onMouseEnter={() => setHoveredDeskId(desk.id)}
                     onMouseLeave={() => setHoveredDeskId(null)}
                   >
@@ -319,6 +326,7 @@ export function TimelineView({
                           const isSelected =
                             selectedSlot?.deskId === desk.id &&
                             selectedSlot?.startTime === hour
+                          const isLastSlot = index === WORKING_HOURS.length - 1
 
                           return (
                             <div
@@ -332,7 +340,7 @@ export function TimelineView({
                           isSelected && 'bg-[#0f172b]/10 ring-2 ring-[#0f172b]'
                         )}
                               style={{
-                                borderColor: '#e5e7eb',
+                                borderRightColor: '#e5e7eb',
                               }}
                               onClick={() => available && handleSlotClick(desk, hourNum)}
                               title={
