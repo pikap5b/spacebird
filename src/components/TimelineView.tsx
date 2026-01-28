@@ -226,7 +226,7 @@ export function TimelineView({
           {sortedFloorGroups.map((floorGroup, floorIndex) => (
             <div key={floorGroup.floorId} className="border-b">
               {/* Floor header */}
-              <div className="flex bg-slate-100/50 border-b relative" style={{ marginTop: floorIndex === 0 ? '40px' : '0' }}>
+              <div className="flex bg-slate-100/50 border-b relative" style={{ marginTop: floorIndex === 0 ? '25px' : '0' }}>
                 <div className="w-64 p-4 border-r bg-slate-100/50 box-border" style={{ borderRightColor: '#e5e7eb', borderRightWidth: '1px' }}>
                   <div className="font-bold text-base text-gray-800">
                     {floorGroup.floorName}
