@@ -14,6 +14,7 @@ import { format, parse } from 'date-fns'
 export function BookDesk() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
+  const [selectedSpaceType, setSelectedSpaceType] = useState<string>('all')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
   const [selectedFloor, setSelectedFloor] = useState<string>('')
@@ -54,7 +55,7 @@ export function BookDesk() {
 
   // Fetch desks for selected floor (or all floors) with bookings
   const { data: desks, isLoading: desksLoading } = useQuery({
-    queryKey: ['desks', selectedFloor, selectedLocation, selectedDate],
+    queryKey: ['desks', selectedFloor, selectedLocation, selectedDate, selectedSpaceType],
     queryFn: async () => {
       if (!selectedFloor || !selectedLocation) return []
       
@@ -68,6 +69,11 @@ export function BookDesk() {
             name
           )
         `)
+
+      // Filter by space type if not "all"
+      if (selectedSpaceType !== 'all') {
+        desksQuery = desksQuery.eq('space_type', selectedSpaceType)
+      }
 
       if (selectedFloor !== 'all') {
         desksQuery = desksQuery.eq('floor_id', selectedFloor)
@@ -138,7 +144,7 @@ export function BookDesk() {
         }
       })
     },
-    enabled: !!selectedFloor && !!selectedLocation && !!selectedDate,
+    enabled: !!selectedFloor && !!selectedLocation && !!selectedDate && !!selectedSpaceType,
   })
 
   const selectedFloorData = floors?.find((f) => f.id === selectedFloor)
@@ -300,9 +306,9 @@ export function BookDesk() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Book a Desk</h1>
+        <h1 className="text-3xl font-bold">Book a Space</h1>
         <p className="text-muted-foreground mt-1">
-          Select a location, date, and floor to view available desks
+          Select space type, location, date, and floor to view available spaces
         </p>
       </div>
 
@@ -312,7 +318,24 @@ export function BookDesk() {
           <CardDescription>Choose your workspace preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="spaceType">Space Type</Label>
+              <Select
+                id="spaceType"
+                value={selectedSpaceType}
+                onChange={(e) => {
+                  setSelectedSpaceType(e.target.value)
+                  setSelectedLocation('')
+                  setSelectedFloor('')
+                }}
+              >
+                <option value="all">All</option>
+                <option value="desk">Desks</option>
+                <option value="meeting_room">Meeting rooms</option>
+                <option value="parking_spot">Parking spots</option>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
               <Select
@@ -322,6 +345,7 @@ export function BookDesk() {
                   setSelectedLocation(e.target.value)
                   setSelectedFloor('')
                 }}
+                disabled={selectedSpaceType === ''}
               >
                 <option value="">Select a location</option>
                 {locations?.map((loc) => (
@@ -366,7 +390,9 @@ export function BookDesk() {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Available Desks</CardTitle>
+              <CardTitle>
+                Available {selectedSpaceType === 'all' ? 'Spaces' : selectedSpaceType === 'desk' ? 'Desks' : selectedSpaceType === 'meeting_room' ? 'Meeting Rooms' : 'Parking Spots'}
+              </CardTitle>
               <CardDescription>
                 {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')} • Click on an available time slot to book
               </CardDescription>

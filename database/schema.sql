@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS desks (
   grid_col INTEGER NOT NULL,
   equipment TEXT[],
   capacity INTEGER NOT NULL DEFAULT 1,
+  space_type TEXT NOT NULL DEFAULT 'desk' CHECK (space_type IN ('desk', 'meeting_room', 'parking_spot')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(floor_id, grid_row, grid_col)
