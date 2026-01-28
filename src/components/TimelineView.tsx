@@ -202,10 +202,10 @@ export function TimelineView({
         </div>
         
         {/* Header with time slots */}
-        <div className="sticky top-[73px] z-10 bg-background border-b">
+        <div className="sticky top-[73px] z-10 bg-slate-100/50 border-b border-gray-200">
           <div className="flex">
-            <div className="w-64 p-4 font-semibold border-r bg-background">Desk / Space</div>
-            <div className="flex-1 flex bg-white overflow-x-auto">
+            <div className="w-64 p-4 font-semibold border-r bg-slate-100/50">Desk / Space</div>
+            <div className="flex-1 flex bg-slate-100/50 overflow-x-auto">
               {WORKING_HOURS.map((hour) => (
                 <div
                   key={hour}
@@ -232,7 +232,7 @@ export function TimelineView({
                     {floorGroup.floorName}
                   </div>
                 </div>
-                <div className="flex-1 bg-white" />
+                <div className="flex-1 bg-slate-100/50" />
               </div>
 
               {/* Desks in this floor */}
