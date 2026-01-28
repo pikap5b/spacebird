@@ -89,8 +89,12 @@ ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
 
 -- Users: Users can read their own profile, admins can read all
+-- Also allow everyone to view basic user info (email, full_name) for booking displays
 CREATE POLICY "Users can view own profile" ON users
   FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Everyone can view user names for bookings" ON users
+  FOR SELECT USING (true);
 
 CREATE POLICY "Users can insert own profile" ON users
   FOR INSERT WITH CHECK (auth.uid() = id);

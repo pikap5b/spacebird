@@ -168,7 +168,7 @@ export function AdminReports() {
                 </div>
                 <div className="flex justify-between">
                   <span>Checked In:</span>
-                  <span className="font-semibold text-blue-600">{weeklyStats?.checkedIn || 0}</span>
+                  <span className="font-semibold text-[#0f172b]">{weeklyStats?.checkedIn || 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cancelled:</span>
@@ -202,7 +202,7 @@ export function AdminReports() {
                 </div>
                 <div className="flex justify-between">
                   <span>Checked In:</span>
-                  <span className="font-semibold text-blue-600">{monthlyStats?.checkedIn || 0}</span>
+                  <span className="font-semibold text-[#0f172b]">{monthlyStats?.checkedIn || 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cancelled:</span>
@@ -287,7 +287,7 @@ export function AdminReports() {
                         booking.status === 'confirmed'
                           ? 'bg-green-100 text-green-700'
                           : booking.status === 'checked_in'
-                          ? 'bg-blue-100 text-blue-700'
+                          ? 'bg-[#0f172b]/10 text-[#0f172b]'
                           : booking.status === 'cancelled'
                           ? 'bg-red-100 text-red-700'
                           : 'bg-gray-100 text-gray-700'

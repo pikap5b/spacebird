@@ -80,7 +80,7 @@ export function MyBookings() {
     }
     // Default status for active bookings (checked_in is now default)
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+      <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#0f172b]/10 text-[#0f172b] rounded text-sm">
         <CheckCircle2 className="h-3 w-3" />
         Active
       </span>

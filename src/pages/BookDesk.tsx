@@ -90,24 +90,23 @@ export function BookDesk() {
       
       if (desksError) throw desksError
 
-      // Get ALL active reservations for the selected date with user info
-      // This should now work for all users after RLS policy fix
+      // Get ALL active reservations for the selected date
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select(`
-          *,
-          users (
-            id,
-            email,
-            full_name
-          )
-        `)
+        .select('*')
         .eq('booking_date', selectedDate)
         .in('status', ['confirmed', 'checked_in'])
         // Exclude cancelled bookings
         .neq('status', 'cancelled')
 
       if (reservationsError) throw reservationsError
+
+      // Fetch user data separately (to work around RLS policies)
+      const userIds = [...new Set(reservations?.map((r: any) => r.user_id) || [])]
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, email, full_name')
+        .in('id', userIds)
 
       // Map reservations to desks with time slot information
       return (desksData || []).map((desk: any) => {
@@ -130,7 +129,7 @@ export function BookDesk() {
             end_time: b.end_time,
             user_id: b.user_id,
             status: b.status,
-            user: b.users,
+            user: usersData?.find((u: any) => u.id === b.user_id),
           })),
           isReserved: reservedDeskIds.has(desk.id),
           isMyBooking: deskBookings.some(

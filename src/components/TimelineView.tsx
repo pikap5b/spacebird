@@ -160,10 +160,10 @@ export function TimelineView({
 
   const getBookingColor = (booking: Booking) => {
     if (booking.user_id === currentUserId) {
-      // Dark blue for user's own bookings
+      // Dark navy (#0f172b) for user's own bookings
       return 'bg-[#0f172b] hover:bg-[#1e293b] text-white'
     }
-    // Muted blue/grey for other users' bookings
+    // Muted grey for other users' bookings
     return 'bg-slate-400 hover:bg-slate-500 text-white'
   }
 
