@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ImageUpload } from '@/components/ImageUpload'
 import { Plus, Pencil, Trash2, Briefcase, Users, Car } from 'lucide-react'
 
 export function AdminDesks() {
@@ -21,6 +22,7 @@ export function AdminDesks() {
   const [gridCol, setGridCol] = useState(1)
   const [capacity, setCapacity] = useState(1)
   const [equipment, setEquipment] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
 
   const { data: floors } = useQuery({
     queryKey: ['floors'],
@@ -40,6 +42,47 @@ export function AdminDesks() {
   })
 
   const selectedFloor = floors?.find((f) => f.id === floorId)
+
+  // Upload image to Supabase Storage
+  const uploadImage = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
+    const filePath = `space-images/${fileName}`
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('space-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      throw new Error(`Failed to upload image: ${uploadError.message}`)
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('space-images')
+      .getPublicUrl(filePath)
+
+    return publicUrl
+  }
+
+  // Delete image from Supabase Storage
+  const deleteImage = async (imageUrl: string): Promise<void> => {
+    // Extract file path from URL
+    const urlParts = imageUrl.split('/')
+    const fileName = urlParts[urlParts.length - 1]
+    const filePath = `space-images/${fileName}`
+
+    const { error } = await supabase.storage
+      .from('space-images')
+      .remove([filePath])
+
+    if (error) {
+      throw new Error(`Failed to delete image: ${error.message}`)
+    }
+  }
 
   const { data: desks, isLoading } = useQuery({
     queryKey: ['desks', floorId, filterSpaceType],
@@ -85,6 +128,7 @@ export function AdminDesks() {
           grid_col: gridCol,
           capacity,
           equipment: equipmentArray,
+          image_url: imageUrl,
         })
         .select()
         .single()
@@ -104,6 +148,15 @@ export function AdminDesks() {
         ? equipment.split(',').map((e) => e.trim()).filter(Boolean)
         : null
 
+      // Delete old image if it was changed
+      if (editingDesk.image_url && editingDesk.image_url !== imageUrl) {
+        try {
+          await deleteImage(editingDesk.image_url)
+        } catch (err) {
+          console.warn('Failed to delete old image:', err)
+        }
+      }
+
       const { data, error } = await supabase
         .from('desks')
         .update({
@@ -114,6 +167,7 @@ export function AdminDesks() {
           grid_col: gridCol,
           capacity,
           equipment: equipmentArray,
+          image_url: imageUrl,
         })
         .eq('id', editingDesk.id)
         .select()
@@ -145,6 +199,7 @@ export function AdminDesks() {
     setGridCol(1)
     setCapacity(1)
     setEquipment('')
+    setImageUrl(null)
     setEditingDesk(null)
     setDialogOpen(false)
   }
@@ -158,6 +213,7 @@ export function AdminDesks() {
     setGridCol(desk.grid_col)
     setCapacity(desk.capacity)
     setEquipment(desk.equipment ? desk.equipment.join(', ') : '')
+    setImageUrl(desk.image_url || null)
     setDialogOpen(true)
   }
 
@@ -412,6 +468,18 @@ export function AdminDesks() {
                 placeholder="e.g., Monitor, Standing Desk, Keyboard"
               />
             </div>
+            <ImageUpload
+              value={imageUrl}
+              onChange={setImageUrl}
+              onUpload={uploadImage}
+              onDelete={imageUrl ? async () => {
+                if (imageUrl) {
+                  await deleteImage(imageUrl)
+                  setImageUrl(null)
+                }
+              } : undefined}
+              maxSizeMB={5}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>

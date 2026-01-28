@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, parse } from 'date-fns'
-import { Clock, Users, Calendar, Lock } from 'lucide-react'
+import { Clock, Users, Calendar, Lock, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTime as formatTimeUtil } from '@/lib/timeUtils'
 
@@ -21,6 +21,7 @@ interface Desk {
   name: string
   capacity?: number
   equipment?: string[] | null
+  image_url?: string | null
   bookings?: Booking[]
   floor_id?: string
   floor?: {
@@ -64,6 +65,7 @@ export function TimelineView({
     startTime: string
     endTime: string
   } | null>(null)
+  const [hoveredDeskId, setHoveredDeskId] = useState<string | null>(null)
 
   const parseTime = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number)
@@ -237,16 +239,54 @@ export function TimelineView({
               {floorGroup.desks.map((desk) => (
                 <div key={desk.id} className="flex min-h-[100px] bg-white hover:bg-slate-50/50 border-b border-gray-100">
                   {/* Desk info column */}
-                  <div className={cn(
-                    "w-64 p-4 border-r flex flex-col justify-center",
-                    desk.isUnavailable ? "bg-gray-100/50" : "bg-white"
-                  )}>
+                  <div 
+                    className={cn(
+                      "w-64 p-4 border-r flex flex-col justify-center relative",
+                      desk.isUnavailable ? "bg-gray-100/50" : "bg-white"
+                    )}
+                    onMouseEnter={() => setHoveredDeskId(desk.id)}
+                    onMouseLeave={() => setHoveredDeskId(null)}
+                  >
                     <div className={cn(
                       "font-medium",
                       desk.isUnavailable ? "text-muted-foreground" : "text-gray-900"
                     )}>
                       {desk.name}
                     </div>
+                    {/* Image preview on hover */}
+                    {hoveredDeskId === desk.id && (
+                      <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 z-50 bg-white rounded-lg shadow-xl border-2 border-gray-200 p-2 pointer-events-none min-w-[256px]">
+                        {desk.image_url ? (
+                          <img
+                            src={desk.image_url}
+                            alt={desk.name}
+                            className="w-64 h-48 object-cover rounded"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              const placeholder = target.nextElementSibling as HTMLElement
+                              if (placeholder) placeholder.style.display = 'flex'
+                            }}
+                          />
+                        ) : null}
+                        {!desk.image_url && (
+                          <div className="w-64 h-48 bg-gray-100 rounded flex flex-col items-center justify-center text-gray-400">
+                            <ImageIcon className="h-12 w-12 mb-2" />
+                            <span className="text-sm">No image available</span>
+                          </div>
+                        )}
+                        {desk.image_url && (
+                          <div className="hidden w-64 h-48 bg-gray-100 rounded flex-col items-center justify-center text-gray-400">
+                            <ImageIcon className="h-12 w-12 mb-2" />
+                            <span className="text-sm">Image failed to load</span>
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs font-medium text-gray-700 text-center">
+                          {desk.name}
+                        </div>
+                      </div>
+                    )}
                     {desk.capacity && (
                       <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1.5">
                         <Users className="h-3.5 w-3.5" />
